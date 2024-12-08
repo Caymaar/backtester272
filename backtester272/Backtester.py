@@ -8,15 +8,41 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 class Backtester:
+    """
+    Classe principale pour effectuer des backtests financiers.
+
+    Cette classe permet d'exécuter des backtests sur des données de prix en utilisant différentes stratégies
+    et configurations. Elle prend en charge les univers dynamiques (listes de tickers valides par date),
+    la gestion des données manquantes, et le calcul de la performance du portefeuille.
+
+    Attributes:
+        data (pd.DataFrame): Données de prix pour les actifs.
+        dates_universe (Dict[str, List[str]]): Univers des actifs par date, au format {date: [tickers]}.
+        start_date (pd.Timestamp): Date de début du backtest.
+        end_date (pd.Timestamp): Date de fin du backtest.
+        freq (int): Fréquence de rééquilibrage en jours.
+        window (int): Taille de la fenêtre de formation en jours.
+        aum (float): Actifs sous gestion (AUM).
+        transaction_cost (float): Coût de transaction en pourcentage.
+        weights (pd.DataFrame): Poids des actifs calculés.
+        performance (pd.Series): Performance du portefeuille sur la période du backtest.
+        total_transaction_costs (float): Coût total des transactions pendant le backtest.
+    """
+
     def __init__(self, data: pd.DataFrame, dates_universe: Dict[str, List[str]] = None) -> None:
         """
-        Initialise le backtester avec les données de prix et optionnellement un dictionnaire d'univers par date.
+        Initialise le backtester avec les données de prix et un univers d'actifs optionnel.
 
         Args:
-            data: pd.DataFrame ou pd.Series avec les prix
-            dates_universe: Dict[str, List[str]], dictionnaire avec dates (YYYY-MM-DD) et listes de tickers
+            data (pd.DataFrame or pd.Series): Données de prix pour les actifs, indexées par date.
+            dates_universe (Dict[str, List[str]], optional): Univers des actifs par date, au format
+                {date: [tickers]}. Par défaut, aucun univers n'est défini.
+
+        Raises:
+            TypeError: Si les données ou `dates_universe` ne sont pas au bon format.
+            ValueError: Si les données sont vides ou non quotidiennes.
         """
-        # Gestion des données
+        # Gestion des données de prix
         if isinstance(data, pd.Series):
             self.data = pd.DataFrame(data)
             if self.data.columns[0] == 0:
@@ -25,35 +51,34 @@ class Backtester:
             self.data = data
 
         if not isinstance(self.data, pd.DataFrame):
-            raise TypeError("Les données doivent être un DataFrame ou une Series")
-        
-        if self.data.empty:
-            raise ValueError("Les données ne peuvent pas être vides")
-        
-        if (self.data.index.to_series().diff()[1:].dt.days < 1).all():
-            raise ValueError("Les données doivent être quotidiennes")
+            raise TypeError("Les données doivent être un DataFrame ou une Series.")
 
-        # Gestion du dictionnaire d'univers par date
+        if self.data.empty:
+            raise ValueError("Les données ne peuvent pas être vides.")
+
+        if (self.data.index.to_series().diff()[1:].dt.days < 1).all():
+            raise ValueError("Les données doivent être quotidiennes.")
+
+        # Gestion de l'univers d'actifs par date
         self.dates_universe = {}
         if dates_universe is not None:
             if not isinstance(dates_universe, dict):
-                raise TypeError("dates_universe doit être un dictionnaire")
-            
-            # Vérifie que chaque clé est une date valide et chaque valeur une liste de strings
+                raise TypeError("dates_universe doit être un dictionnaire.")
+
             for date_str, tickers in dates_universe.items():
-                # Vérifie le format de la date
+                # Validation des clés et valeurs
                 try:
                     pd.to_datetime(date_str)
                 except ValueError:
-                    raise ValueError(f"La clé {date_str} n'est pas une date valide au format YYYY-MM-DD")
+                    raise ValueError(f"La clé {date_str} n'est pas une date valide au format YYYY-MM-DD.")
                 
                 if not isinstance(tickers, list) or not all(isinstance(t, str) for t in tickers):
-                    raise ValueError(f"Les tickers pour la date {date_str} doivent être une liste de strings")
+                    raise ValueError(f"Les tickers pour la date {date_str} doivent être une liste de chaînes.")
                 
-                # Vérifie que les tickers existent dans data
+                # Vérifie la présence des tickers dans les colonnes des données
                 invalid_tickers = [t for t in tickers if t not in self.data.columns]
                 if invalid_tickers:
-                    raise ValueError(f"Tickers non trouvés dans les données: {invalid_tickers}")
+                    raise ValueError(f"Tickers non trouvés dans les données: {invalid_tickers}.")
             
             self.dates_universe = dates_universe
 
@@ -66,220 +91,212 @@ class Backtester:
             transaction_cost: float = 0.0, 
             strategy: Strategy = None) -> Result:
         """
-        Exécute le backtest avec les paramètres spécifiés.
+        Exécute le backtest sur la période spécifiée avec les paramètres donnés.
 
         Args:
-        - start_date (pd.Timestamp): Date de début du backtest.
-        - end_date (pd.Timestamp): Date de fin du backtest.
-        - freq (int): Fréquence de rééquilibrage en jours.
-        - window (int): Fenêtre de formation en jours.
-        - aum (float): Actifs sous gestion.
-        - transaction_cost (float): Coût de transaction en pourcentage.
-        - strategy (Strategy): Stratégie de trading à tester.
+            start_date (pd.Timestamp, optional): Date de début du backtest. Par défaut, la première date des données.
+            end_date (pd.Timestamp, optional): Date de fin du backtest. Par défaut, la dernière date des données.
+            freq (int): Fréquence de rééquilibrage (en jours).
+            window (int): Taille de la fenêtre de formation (en jours).
+            aum (float): Actifs sous gestion (AUM).
+            transaction_cost (float): Coût de transaction (en pourcentage).
+            strategy (Strategy): Stratégie de trading à appliquer.
 
         Returns:
-        - Result: Résultats du backtest.
+            Result: Objet contenant les résultats du backtest.
+
+        Raises:
+            ValueError: Si des paramètres obligatoires ou incohérents sont fournis.
         """
-
         if strategy is None:
-            raise ValueError("A strategy must be provided to run the backtest.")
-        
-        if start_date is None:
-            start_date = self.returns.index[0]
+            raise ValueError("Une stratégie doit être fournie pour exécuter le backtest.")
 
+        if start_date is None:
+            start_date = self.data.index[0]
         if end_date is None:
-            end_date = self.returns.index[-1]
+            end_date = self.data.index[-1]
+
+        # Validation des paramètres
+        if not isinstance(freq, int) or freq <= 0:
+            raise ValueError("freq doit être un entier positif supérieur à 0.")
+        if not isinstance(window, int) or window <= 0:
+            raise ValueError("window doit être un entier positif supérieur à 0.")
+        if not isinstance(aum, (int, float)) or aum <= 0:
+            raise ValueError("aum doit être un float positif supérieur à 0.")
+        if not isinstance(transaction_cost, (int, float)) or transaction_cost < 0:
+            raise ValueError("transaction_cost doit être un float positif ou nul.")
 
         self.start_date = start_date
         self.end_date = end_date
-
-        # Vérifie que freq est un entier positif supérieur à 0
-        if not isinstance(freq, int) or freq <= 0:
-            raise ValueError("freq doit être un entier positif supérieur à 0")
         self.freq = freq
-
-        # Vérifie que window est un entier positif supérieur à 0
-        if not isinstance(window, int) or window <= 0:
-            raise ValueError("window doit être un entier positif supérieur à 0")
         self.window = window
-
-        # Vérifie que aum est un float positif supérieur à 0
-        if not isinstance(aum, (int, float)) or aum <= 0:
-            raise ValueError("aum doit être un float positif supérieur à 0")
         self.aum = aum
-
-        # Vérifie que transaction_cost est un float positif ou nul
-        if not isinstance(transaction_cost, (int, float)) or transaction_cost < 0:
-            raise ValueError("transaction_cost doit être un float positif ou nul")
         self.transaction_cost = transaction_cost
 
+        # Gestion des données manquantes, calcul des poids et performance
         self.handle_missing_data()
         self.calculate_weights(strategy)
         self.calculate_performance()
 
+        # Nommer la stratégie si elle n'est pas déjà nommée
         if not hasattr(strategy, 'name'):
             strategy.name = strategy.__class__.__name__
 
         return Result(self.performance, self.weights, self.total_transaction_costs, strategy.name)
 
     def handle_missing_data(self) -> None:
-        # Supprimer les colonnes avec toutes les valeurs manquantes
-        self.data = self.data.dropna(axis=1, how='all')
+        """
+        Gère les données manquantes en remplissant les valeurs dans les colonnes valides.
+        """
+        # Supprime les colonnes entièrement vides et conserve les données numériques
+        self.data = self.data.dropna(axis=1, how='all').select_dtypes(include=[np.number])
 
-        # Sélectionner uniquement les colonnes numériques
-        self.data = self.data.select_dtypes(include=[np.number])
-
-        # Remplir les valeurs manquantes entre le premier et le dernier index valides pour chaque colonne
+        # Remplit les valeurs manquantes entre le premier et le dernier index valides
         for col in self.data.columns:
-            first_valid_index = self.data[col].first_valid_index()
-            last_valid_index = self.data[col].last_valid_index()
-
-            if first_valid_index is not None and last_valid_index is not None:
-                self.data.loc[first_valid_index:last_valid_index, col] = self.data.loc[first_valid_index:last_valid_index, col].ffill()
+            self.data[col] = self.data[col].loc[
+                self.data[col].first_valid_index():self.data[col].last_valid_index()
+            ].ffill()
 
         if self.data.empty:
-            raise ValueError("No data available after handling missing values.")
+            raise ValueError("Aucune donnée disponible après le traitement des valeurs manquantes.")
 
-
-    def calculate_weights(self, strategy: Strategy) -> None: 
+    def calculate_weights(self, strategy: Strategy) -> None:
         """
-        Calcule les poids optimaux pour chaque date de rééquilibrage.
+        Calcule les poids optimaux pour chaque date de rééquilibrage en fonction de la stratégie.
 
         Args:
-        - strategy (Strategy): Stratégie de trading à tester.
-
-        Returns:
-        - None
+            strategy (Strategy): Stratégie de trading utilisée.
         """
 
-        # Define rebalancing frequency and training window
+        # Définir la fréquence de rééquilibrage et la fenêtre de formation en jours
         freq_dt = pd.DateOffset(days=self.freq)
         window_dt = pd.DateOffset(days=self.window)
 
-        # Calculate start date with window
+        # Calculer la date de début en tenant compte de la fenêtre
         start_date_with_window = pd.to_datetime(self.start_date) - window_dt
 
-        # Get price data within the window
+        # Obtenir les données de prix sur la période pertinente
         prices = self.data[start_date_with_window:self.end_date]
 
-        # Generate rebalancing dates in reverse order
+        # Générer les dates de rééquilibrage en ordre décroissant
         rebalancing_dates = []
         current_date = prices.index[-1]
         while current_date >= prices.index[0] + window_dt:
             rebalancing_dates.append(current_date)
             current_date -= freq_dt
-    
-        # Reverse the list to have dates in ascending order
+
+        # Inverser la liste pour avoir les dates en ordre croissant
         rebalancing_dates.reverse()
 
-        # Initialize last_weights as zeros
+        # Initialiser les poids précédents à zéro pour tous les actifs
         last_weights = pd.Series(0.0, index=prices.columns)
 
-        # Initialize lists to collect weights and dates
+        # Initialiser les listes pour collecter les poids et les dates
         weights_list = [last_weights]
         dates_list = [(current_date - pd.DateOffset(days=1))]
 
+        # Calculer les poids pour chaque date de rééquilibrage
         for current_date in rebalancing_dates:
-            # Define training period
+            # Définir la période de formation
             train_start = current_date - window_dt
             train_end = current_date - pd.DateOffset(days=1)
 
-            # Get training data
+            # Obtenir les données de prix pour la période de formation
             price_window = prices[train_start:train_end]
 
-            # Filtrer selon l'univers de dates
+            # Filtrer les données en fonction de l'univers défini
             if self.dates_universe:
-                # Convertir toutes les dates du dictionnaire en datetime
+                # Convertir les dates du dictionnaire en format datetime
                 universe_dates = [pd.to_datetime(date) for date in self.dates_universe.keys()]
-                
+
                 # Trouver la date d'univers la plus récente avant la date courante
                 available_dates = [date for date in universe_dates if date <= current_date]
-                
+
                 if available_dates:
                     reference_date = max(available_dates)
                     active_tickers = self.dates_universe[reference_date.strftime('%Y-%m-%d')]
                     price_window = price_window[active_tickers]
                 else:
                     print(f"Pas d'univers défini avant {current_date}")
-                    price_window = pd.DataFrame()  # DataFrame vide si pas de date valide
+                    price_window = pd.DataFrame()  # Renvoie un DataFrame vide si aucune date valide
 
-            # Drop columns with missing values
+            # Supprimer les colonnes avec des valeurs manquantes
             price_window_filtered = price_window.dropna(axis=1)
             if price_window_filtered.empty:
-                print(f"No data available for {current_date}. Skipping...")
-            # Get new weights from strategy
+                print(f"Aucune donnée disponible pour {current_date}. Passage...")
+                continue
+
+            # Calculer les nouveaux poids en fonction de la stratégie
             final_optimal_weights = strategy.get_position(price_window_filtered, last_weights)
             last_weights = final_optimal_weights
 
-            # Collect weights and date
+            # Enregistrer les poids et la date
             weights_list.append(final_optimal_weights)
             dates_list.append(current_date)
 
-        # Create DataFrame from collected weights
+        # Créer un DataFrame à partir des poids collectés
         optimal_weights_df = pd.DataFrame(weights_list, index=dates_list)
 
-        # Assign the calculated weights
+        # Assigner les poids calculés à l'attribut de la classe
         self.weights = optimal_weights_df.fillna(0.0)
 
     def calculate_performance(self) -> None:
         """
         Calcule la performance du portefeuille en utilisant les poids calculés.
-
-        Returns:
-        - None
         """
         
+        # Initialiser le solde du portefeuille avec les actifs sous gestion (AUM)
         balance = self.aum
 
-        # Get the first date where weights are available
+        # Obtenir la première date où des poids sont disponibles
         first_valid_date = self.weights.first_valid_index()
-        
-        # Get the data within the specified date range
+
+        # Filtrer les données de prix dans la plage de dates spécifiée
         df = self.data[self.start_date:self.end_date]
 
-        # Calculate returns
+        # Calculer les rendements quotidiens
         returns = df.pct_change()[1:]
 
-        # Initialize total transaction costs and previous weights
+        # Initialiser les coûts totaux de transaction et les poids précédents
         self.total_transaction_costs = 0
         previous_weights = pd.Series(0.0, index=self.weights.columns)
 
-        # Initialize lists to store portfolio values and dates
+        # Initialiser les listes pour stocker les valeurs du portefeuille et les dates
         portfolio_values = [self.aum]
         dates = [first_valid_date - pd.DateOffset(days=1)]
 
-        # Get the list of dates to iterate over
+        # Obtenir la liste des dates à traiter
         date_range = returns.loc[first_valid_date:].index
 
         for date in date_range:
-            # Update weights if new weights are available
+            # Mettre à jour les poids si de nouveaux poids sont disponibles
             if date in self.weights.index:
                 current_weights = self.weights.loc[date]
 
-                # Calculate changes in positions
+                # Calculer les changements dans les positions
                 changes = (current_weights - previous_weights) * balance
 
-                # Calculate transaction costs
+                # Calculer les coûts de transaction
                 transaction_costs = changes.abs().sum() * (self.transaction_cost / 100)
 
-                # Update total transaction costs and subtract from balance
+                # Mettre à jour les coûts totaux de transaction et réduire le solde
                 self.total_transaction_costs += transaction_costs
                 balance -= transaction_costs
 
-                # Update previous weights
+                # Mettre à jour les poids précédents
                 previous_weights = current_weights.copy()
             else:
                 current_weights = previous_weights.copy()
 
-            # Calculate portfolio return
+            # Calculer le rendement du portefeuille pour la journée
             portfolio_return = (current_weights * returns.loc[date]).sum()
 
-            # Update balance
+            # Mettre à jour le solde
             balance *= (1 + portfolio_return)
 
-            # Store the portfolio value and date
+            # Enregistrer la valeur du portefeuille et la date
             portfolio_values.append(balance)
             dates.append(date)
 
-        # Create a Series for the portfolio performance
+        # Créer une Series pour la performance du portefeuille
         self.performance = pd.Series(portfolio_values, index=dates)
