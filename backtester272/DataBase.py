@@ -144,6 +144,54 @@ class DataBase:
         data = yf.download(symbols, start=start_date, end=end_date, progress=self.verbose)
         return data['Close']
 
+    def get_data(self, symbols: List[str], start_date: str, end_date: str) -> pd.DataFrame:
+        """
+        Extrait les données des symboles spécifiés entre deux dates.
+
+        Args:
+            symbols (List[str]): Liste des symboles à récupérer.
+            start_date (str): Date de début au format 'YYYY-MM-DD'.
+            end_date (str): Date de fin au format 'YYYY-MM-DD'.
+
+        Returns:
+            pd.DataFrame: Données filtrées contenant les symboles valides entre les dates spécifiées.
+        """
+        # Listes pour les symboles valides et invalides
+        valid_symbols = []
+        invalid_symbols = []
+
+        # Filtrer les symboles selon leur présence dans la base de données
+        for s in symbols:
+            if s not in self.notlisted:
+                if s in self.database.columns:  # Vérifie si le symbole est dans la base
+                    valid_symbols.append(s)
+                else:  # Ajoute à la liste des invalides si absent
+                    invalid_symbols.append(s)
+                    if self.verbose:
+                        print(f"Le symbole {s} n'est pas présent dans la base de données")
+
+        # Vérifie s'il y a au moins un symbole valide
+        if not valid_symbols:
+            if self.verbose:
+                print("Aucun symbole valide trouvé.")
+            return pd.DataFrame()
+
+        # Conversion des dates en objets datetime pour garantir la compatibilité
+        start_date = pd.to_datetime(start_date)
+        end_date = pd.to_datetime(end_date)
+
+        # Filtrer les données dans l'intervalle de dates pour les symboles valides
+        filtered_data = self.database.loc[start_date:end_date, valid_symbols]
+
+        # Supprimer les lignes où toutes les valeurs sont NaN
+        filtered_data = filtered_data.dropna(how='all')
+
+        # Message verbose pour confirmer l'extraction
+        if self.verbose:
+            print(f"Données extraites pour {len(valid_symbols)} symboles du {start_date.date()} au {end_date.date()}")
+
+        return filtered_data
+
     def save_database(self) -> None:
         """
         Sauvegarde la base de données actuelle dans un fichier CSV.
