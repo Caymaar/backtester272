@@ -201,37 +201,105 @@ class DataBase:
         if self.verbose:
             print("Base de données sauvegardée.")
 
-    def update_database(self, symbols: List[str], start_date: str, end_date: str, backend: str) -> None:
+    def _get_symbol_date_range(self, symbol: str) -> Tuple[Optional[str], Optional[str]]:
         """
-        Met à jour la base de données avec de nouvelles données de clôture.
+        Récupère la plage de dates (première et dernière) pour un symbole spécifique 
+        dans la base de données.
+
+        Args:
+            symbol (str): Le symbole pour lequel récupérer la plage de dates.
+
+        Returns:
+            Tuple[Optional[str], Optional[str]]:
+                - Première date valide (format 'YYYY-MM-DD').
+                - Dernière date valide (format 'YYYY-MM-DD').
+                - Si le symbole n'existe pas ou n'a pas de données valides, retourne (None, None).
+        """
+        if symbol not in self.database.columns:
+            # Le symbole n'est pas présent dans la base de données
+            if self.verbose:
+                print(f"Le symbole '{symbol}' n'existe pas dans la base de données.")
+            return None, None
+
+        # Obtenir les premières et dernières dates valides
+        first_date = self.database[symbol].first_valid_index()
+        last_date = self.database[symbol].last_valid_index()
+
+        if first_date is None or last_date is None:
+            # Si aucune donnée valide n'est trouvée
+            if self.verbose:
+                print(f"Le symbole '{symbol}' n'a pas de données valides dans la base.")
+            return None, None
+
+        # Retourner les dates au format 'YYYY-MM-DD'
+        return first_date.strftime('%Y-%m-%d'), last_date.strftime('%Y-%m-%d')
+
+    def update_database(self, symbols: List[str], start_date: str, end_date: str, backend: str) -> List[str]:
+        """
+        Met à jour la base de données avec des données manquantes pour les symboles spécifiés.
 
         Args:
             symbols (List[str]): Liste des symboles à mettre à jour.
-            start_date (str): Date de début pour les nouvelles données.
-            end_date (str): Date de fin pour les nouvelles données.
-            backend (str): Source des données ('binance' ou 'yfinance').
+            start_date (str): Date de début au format 'YYYY-MM-DD'.
+            end_date (str): Date de fin au format 'YYYY-MM-DD'.
+            backend (str): Source des données ("binance" ou "yfinance").
+
+        Returns:
+            List[str]: Liste des symboles qui n'ont pas pu être mis à jour (notlisted).
         """
+        self.notlisted = []  # Réinitialisation de la liste des symboles introuvables
+        modified = False  # Indicateur de modification de la base de données
+
         if not self.is_online:
+            # Vérification du mode hors ligne
             if self.verbose:
-                print("Mode hors-ligne activé. Mise à jour impossible.")
-            return
+                print("Base de données en mode hors ligne. Mise à jour impossible.")
+            return self.notlisted
 
         for symbol in symbols:
             if self.verbose:
-                print(f"Mise à jour des données pour {symbol}...")
+                print(f"Vérification des données pour {symbol}...")
 
-            # Récupérer les nouvelles données
-            new_data = self.get_historical_close([symbol], start_date, end_date, backend)
-            if new_data is not None:
-                self.database = self.database.combine_first(new_data)
+            # Obtenir la plage de dates actuelle pour le symbole
+            min_date, max_date = self._get_symbol_date_range(symbol)
+
+            # Déterminer si des données supplémentaires sont nécessaires
+            if min_date is None or pd.to_datetime(max_date) < pd.to_datetime(end_date):
+                # Définir la plage de dates à récupérer
+                new_start_date = max_date if max_date else start_date
                 if self.verbose:
-                    print(f"Données mises à jour pour {symbol}.")
+                    print(f"Récupération des données pour {symbol} de {new_start_date} à {end_date}...")
+
+                # Récupérer les données historiques manquantes
+                new_data = self.get_historical_close([symbol], new_start_date, end_date, backend)
+
+                if new_data is None:
+                    # Ajouter le symbole à la liste des introuvables si les données ne sont pas disponibles
+                    if self.verbose:
+                        print(f"Les données pour {symbol} ne sont pas disponibles.")
+                    self.notlisted.append(symbol)
+                    continue
+
+                # Ajouter les nouvelles données à la base de données
+                self.database = self.database.combine_first(new_data)
+                modified = True
+
+                if self.verbose:
+                    print(f"Données mises à jour pour {symbol} ({new_start_date} - {end_date}).")
             else:
                 if self.verbose:
-                    print(f"Les données pour {symbol} ne sont pas disponibles.")
+                    print(f"Les données pour {symbol} sont déjà à jour.")
 
-        # Sauvegarder les changements
-        self.save_database()
+        # Sauvegarder la base de données si des modifications ont été apportées
+        if modified:
+            self.save_database()
+            if self.verbose:
+                print("Base de données sauvegardée avec les nouvelles mises à jour.")
+        else:
+            if self.verbose:
+                print("Aucune mise à jour nécessaire.")
+
+        return self.notlisted
 
     @staticmethod
     def from_ohlcv_to_close(ohlcv_df: pd.DataFrame) -> pd.DataFrame:
