@@ -51,51 +51,13 @@ Backtester272 est un projet de backtesting permettant de tester des stratégies 
 └── README.md                  # Documentation (ce fichier)
 ```
 
-## Fonctionnalités principales
-
-1. **Backtesting complet** avec gestion des univers dynamiques.
-2. **Stratégies prédéfinies** (pondération égale, minimisation de variance, maximisation du Sharpe, momentum, etc.).
-3. **Intégration des données** de Binance et Yahoo Finance pour les cryptomonnaies et actions.
-4. **Visualisations interactives** avec Matplotlib et Plotly.
-5. **Analyse des métriques de performance** (CAGR, volatilité, drawdown, ratio de Sharpe, etc.).
-
----
-
-## Structure du projet
-
-```plaintext
-├── .github/workflows/
-│   └── test.yml               # Configuration GitHub Actions pour lancer les tests
-├── backtester272/             # Package principal
-│   ├── Backtester.py          # Classe principale pour exécuter le backtest
-│   ├── DataBase.py            # Gestion des données historiques
-│   ├── Result.py              # Analyse et visualisation des résultats
-│   ├── Strategy.py            # Définitions des stratégies abstraites
-│   ├── StrategyBank.py        # Stratégies implémentées
-│   ├── Universe.py            # Construction des univers d'actifs
-│   └── __init__.py            # Initialisation du package
-├── data/
-│   └── database.csv           # Base de données locale d'exemple
-├── examples/
-│   ├── simple_examples.ipynb  # Exemple simple d'utilisation du backtester
-│   └── data/database.csv      # Fichier CSV d'exemple
-├── image/
-│   └── draw.jpg               # Schéma de la structure du projet
-├── pyproject.toml             # Configuration de gestion des dépendances
-├── tests/
-│   ├── test_backtester.py     # Tests unitaires pour Backtester
-│   ├── test_universe.py       # Tests unitaires pour Universe
-│   └── __init__.py            # Initialisation des tests
-└── README.md                  # Documentation (ce fichier)
-```
-
 --- 
 
 ## Installation
 
 Prérequis
 
-- Python >= 3.10
+- Python >= 3.9
 - Poetry pour gérer les dépendances
 
 Installation du projet
