@@ -51,23 +51,6 @@ Backtester272 est un projet de backtesting permettant de tester des stratégies 
 └── README.md                  # Documentation (ce fichier)
 ```
 
-Voici une version complète et détaillée en Markdown, incluant toutes les informations nécessaires pour le fichier README.md :
-
-# Backtester272
-
-![Structure du projet](image/draw.jpg)
-
-**Version**: 0.3.0  
-**Auteurs**: Jules Mourgues-Haroche, Alexandre Remiat, Walid Boudini, Cassandre Amizet  
-
----
-
-## Description
-
-Backtester272 est un projet de backtesting permettant de tester des stratégies d'investissement sur des données historiques provenant de sources comme Binance et Yahoo Finance. Ce package offre une flexibilité dans la personnalisation des stratégies et permet d'exploiter des classes pour gérer les données, construire des univers de trading, et analyser les résultats.
-
----
-
 ## Fonctionnalités principales
 
 1. **Backtesting complet** avec gestion des univers dynamiques.
@@ -112,26 +95,26 @@ Backtester272 est un projet de backtesting permettant de tester des stratégies 
 
 Prérequis
 
-	•	Python >= 3.10
-	•	Poetry pour gérer les dépendances
+- Python >= 3.10
+- Poetry pour gérer les dépendances
 
 Installation du projet
 
-	1.	Clonez le dépôt :
+1. Clonez le dépôt :
 
 ```bash
 git clone <URL_DU_DEPOT>
 cd backtester272
 ```
 
-	2.	Installez les dépendances :
+2. Installez les dépendances :
 
 ```bash
 pip install poetry
 poetry install
 ```
 
-	3.	Activez l’environnement virtuel :
+3. Activez l’environnement virtuel :
 
 ```bash
 poetry shell
@@ -169,35 +152,36 @@ result.visualize()
 
 1. Backtester
 
-	•	Effectue le backtest en utilisant des données de prix et une stratégie définie.
-	•	Principaux paramètres :
-	•	data : pd.DataFrame des données de prix.
-	•	start_date, end_date : Période du backtest.
-	•	strategy : Objet d’une classe fille de Strategy.
-	•	aum : Actifs sous gestion (par défaut : 100).
-	•	transaction_cost : Coût des transactions en pourcentage.
+- Effectue le backtest en utilisant des données de prix et une stratégie définie.
+- Principaux paramètres :
+- data : pd.DataFrame des données de prix.
+- start_date, end_date : Période du backtest.
+- strategy : Objet d’une classe fille de Strategy.
+- aum : Actifs sous gestion (par défaut : 100).
+- transaction_cost : Coût des transactions en pourcentage.
 
 2. Strategy
 
-	•	Classe abstraite pour implémenter des stratégies d’investissement.
-	•	Stratégies disponibles :
-	•	EqualWeightStrategy : Poids égaux entre les actifs.
-	•	RandomStrategy : Poids aléatoires normalisés.
-	•	MomentumStrategy : Basée sur les rendements passés.
-	•	MinVarianceStrategy : Minimisation de la variance.
-	•	MaxSharpeStrategy : Maximisation du ratio de Sharpe.
+- Classe abstraite pour implémenter des stratégies d’investissement.
+- Stratégies disponibles :
+- EqualWeightStrategy : Poids égaux entre les actifs.
+- RandomStrategy : Poids aléatoires normalisés.
+- MomentumStrategy : Basée sur les rendements passés.
+- MinVarianceStrategy : Minimisation de la variance.
+- MaxSharpeStrategy : Maximisation du ratio de Sharpe.
 
 3. Result
 
-	•	Analyse les résultats d’un backtest.
-	•	Méthodes principales :
-	•	show_metrics() : Affiche les métriques de performance.
-	•	visualize() : Visualise la performance du portefeuille.
-	•	plot_dashboard() : Compare plusieurs stratégies.
+- Analyse les résultats d’un backtest.
+- Méthodes principales :
+- show_metrics() : Affiche les métriques de performance.
+- visualize() : Visualise la performance du portefeuille.
+- compare() : Permet de comparer plusieurs stratégies.
+- positions() : Permet de visualiser l'évolution des positions.
 
 4. Universe
 
-	•	Gère les univers d’actifs en récupérant des données via CoinGecko, Binance, ou Yahoo Finance.
+- Gère les univers d’actifs en récupérant des données via CoinGecko, Binance, ou Yahoo Finance.
 
 ---
 
