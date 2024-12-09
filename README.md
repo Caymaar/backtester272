@@ -87,23 +87,46 @@ poetry shell
 Exemple minimal d’utilisation
 
 ```python
-import pandas as pd
-from backtester272 import Backtester, EqualWeightStrategy
+# Initialisation de l'univers de trading avec un mode verbeux
+univers = Universe(verbose=True)
 
-# Chargement des données
-data = pd.read_csv('data/database.csv', index_col='Date', parse_dates=True)
+# Sélection des symboles crypto appartenant à la couche "layer-1", limité à 50 tickers
+tickers = univers.get_crypto_symbols("layer-1", 50)
 
-# Initialisation du backtester
-backtester = Backtester(data)
+# Définition de la période du backtest
+start_date = '2015-01-01'
+end_date = '2024-11-15'
 
-# Exécution avec une stratégie à pondération égale
-result = backtester.run(start_date='2020-01-01', end_date='2020-12-31', strategy=EqualWeightStrategy())
+# Récupération des données de prix des crypto-monnaies sélectionnées sur la période définie
+crypto_prices = univers.get_crypto_prices(tickers, start_date, end_date)
 
-# Affichage des métriques
-result.show_metrics()
+# Instanciation du backtester avec les données de prix récupérées
+crypto_bt = Backtester(crypto_prices)
 
-# Visualisation
-result.visualize()
+# Exécution du backtest avec la stratégie "Equal Weight" (poids égal pour chaque actif)
+ERC = crypto_bt.run(
+    start_date, 
+    end_date, 
+    freq=30, 
+    window=365, 
+    aum=100, 
+    transaction_cost=0.0, 
+    strategy=EqualRiskContributionStrategy()
+)
+
+# Exécution du backtest avec la stratégie "Max Sharpe" (maximisation du ratio de Sharpe)
+max_sharpe = crypto_bt.run(
+    start_date, 
+    end_date, 
+    freq=30, 
+    window=365, 
+    aum=100, 
+    transaction_cost=0.0, 
+    strategy=MaxSharpeStrategy()
+)
+
+# Comparaison des résultats entre deux stratégies
+ERC.compare(max_sharpe)
 ```
 
 ---
