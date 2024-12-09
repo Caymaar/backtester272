@@ -36,8 +36,6 @@ Backtester272 est un projet de backtesting permettant de tester des stratégies 
 │   ├── StrategyBank.py        # Stratégies implémentées
 │   ├── Universe.py            # Construction des univers d'actifs
 │   └── __init__.py            # Initialisation du package
-├── data/
-│   └── database.csv           # Base de données locale d'exemple
 ├── examples/
 │   ├── simple_examples.ipynb  # Exemple simple d'utilisation du backtester
 │   └── data/database.csv      # Fichier CSV d'exemple
