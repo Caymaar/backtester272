@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "backtester272"
-version = "0.3.0"
+version = "1.0.1"
 description = "A backtesting project where you can also request binance and yfinance assets, and customize your strategies"
 authors = ["Jules MOURGUES-HAROCHE <julesmourgues@gmail.com>", "Alexandre REMIAT", "Walid BOUDINI", "Cassandre AMIZET"]
 
