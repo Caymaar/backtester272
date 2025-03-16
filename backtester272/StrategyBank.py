@@ -137,7 +137,7 @@ class EqualRiskContributionStrategy(OptimizationStrategy):
             return objective_value ** 2
 
         risk_contributions = ((cov_matrix @ weights) * weights) / np.sqrt((weights.T @ cov_matrix @ weights))
-        risk_objective = np.sum((risk_contributions - 1 / len(weights))**2)
+        risk_objective = np.sum((risk_contributions[:, None] - risk_contributions[None, :])**2)
         # risk_objective = _minimize_risk_concentration(weights, cov_matrix) # ou "np.sum((risk_contributions - 1 / num_assets)**2)" Les deux fonctionnent, mais différement, j'ai du mal à cerner si l'une est meilleure que l'autre.
         return_value_objective = -self.lmd_mu * weights.T @ expected_returns
         variance_objective = self.lmd_var * weights.T @ cov_matrix @ weights
